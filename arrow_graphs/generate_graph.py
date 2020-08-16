@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 from functions import cast_number
 
-def main(args):
+def main(args:'list'):
     # arg_f(argument_list, index, validity_function, default_value)
     arg_f = lambda a, i, f, d: f(a[i]) if len(a)>i and f(a[i]) != None else d
     amount = abs(arg_f(args,1,cast_number,8))
@@ -40,11 +40,13 @@ def main(args):
     nodes = make_nodes_set(amount, connections, range, minimum)
     display_graph(nodes)
 
-def display_graph(G):
-    nx.draw_kamada_kawai(G)
+def display_graph(G:'nx.Graph'):
+    pos = nx.kamada_kawai_layout(G)
+    # pos = nx.shell_layout(G)
+    nx.draw(G,pos,with_labels=True, font_weight='bold')
     plt.show()
 
-def make_nodes_set(n_a, n_c, n_r, n_m=0):
+def make_nodes_set(n_a:'int', n_c:'int list', n_r:'int', n_m:'int'=0):
     """make_nodes_set(number, *connections, range, minimum)
     Makes number of nodes with difference between them a value from connections.
     Nodes can be as small as minimum and up to range above that minimum.
@@ -74,14 +76,36 @@ def make_nodes_set(n_a, n_c, n_r, n_m=0):
     }
     start_node = int(gp['avg_val'] - 0.5*gp['avg_con']*gp['est_dia'])
     start_node = bound_value(gp['min_val'], start_node, gp['max_val'])
-    n_l = nx.Digraph()
+    n_l = nx.DiGraph()
     n_l.add_node(start_node)
-    next_node = start_node
+    #next_node = start_node
     #node_count = 0 # this is === len(n_l)
-    add_arrow_nodes(next_node)
+    add_arrow_nodes(n_l,gp,start_node)
     return n_l
+'''
+# nodes
+nx.draw_networkx_nodes(G, pos,
+                       nodelist=[0, 1, 2, 3],
+                       node_color='r',
+                       node_size=500,
+                       alpha=0.8)
+nx.draw_networkx_nodes(G, pos,
+                       nodelist=[4, 5, 6, 7],
+                       node_color='b',
+                       node_size=500,
+                       alpha=0.8)
 
-def add_arrow_nodes(G, gp, from_value):
+# edges
+nx.draw_networkx_edges(G, pos, width=1.0, alpha=0.5)
+nx.draw_networkx_edges(G, pos,
+                       edgelist=[(0, 1), (1, 2), (2, 3), (3, 0)],
+                       width=8, alpha=0.5, edge_color='r')
+nx.draw_networkx_edges(G, pos,
+                       edgelist=[(4, 5), (5, 6), (6, 7), (7, 4)],
+                       width=8, alpha=0.5, edge_color='b')
+'''
+
+def add_arrow_nodes(G:'nx.Graph', gp:'dictionary', from_value:'int'):
     """add_arrow_nodes(Graph, graph_parameters, from_value)
     Add nodes to the graph and edges leading to them.
     """
@@ -93,16 +117,16 @@ def add_arrow_nodes(G, gp, from_value):
         if i in G or i < gp['min_val'] or i > gp['max_val']:
             next_node_list.remove(i)
     random.shuffle(next_node_list)
-    max_to_add = bound_value(0, gp['avg_deg'], gp['max_num'] - len(G)))
+    max_to_add = bound_value(0, gp['avg_deg'], gp['max_num'] - len(G))
     next_node_list = next_node_list[:max_to_add]
     for i in next_node_list:
         if len(G) < gp['max_num']:
             G.add_node(i)
             if (i - from_value) in gp['all_con']:
-                G.add_edge(from_value,i)
+                G.add_edge(from_value,i, edge_color='0xFF00FF')
                 #G.add_edge(from_value,i,weight=i - from_value)
             else: #from_value - i should be in gp['all_con']
-                G.add_edge(i,from_value)
+                G.add_edge(i,from_value, edge_color='b')
                 #G.add_edge(i,from_value,weight=from_value - i)
             crosslink_list = bidirectional_nodes(i, gp['all_con'].copy())
             for k in crosslink_list:
@@ -119,6 +143,12 @@ def add_arrow_nodes(G, gp, from_value):
                     else: #k - i should be in gp['all_con']
                         G.add_edge(i,k)
                         #G.add_edge(i,k,weight=k - i)
+                # Avoid excessive crosslinking
+                if random.random() > 0.5:
+                    continue
+            # Avoid a straight line graph.
+            if random.random() > 0.5:
+                continue
             add_arrow_nodes(G, gp, i)
     return G
 
