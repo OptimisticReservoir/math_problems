@@ -38,8 +38,11 @@ def main(args):
 
     # Make "amount" nodes, from "minimum" to "range" higher than that.
     nodes = make_nodes_set(amount, connections, range, minimum)
+    display_graph(nodes)
 
-
+def display_graph(G):
+    nx.draw_kamada_kawai(G)
+    plt.show()
 
 def make_nodes_set(n_a, n_c, n_r, n_m=0):
     """make_nodes_set(number, *connections, range, minimum)
@@ -75,7 +78,7 @@ def make_nodes_set(n_a, n_c, n_r, n_m=0):
     n_l.add_node(start_node)
     next_node = start_node
     #node_count = 0 # this is === len(n_l)
-
+    add_arrow_nodes(next_node)
     return n_l
 
 def add_arrow_nodes(G, gp, from_value):
@@ -106,7 +109,7 @@ def add_arrow_nodes(G, gp, from_value):
                 if k in G or k < gp['min_val'] or k > gp['max_val']:
                     crosslink_list.remove(k)
             random.shuffle(crosslink_list)
-            max_to_link = bound_value(0, gp['avg_deg'], gp['max_num'] - len(G)))
+            max_to_link = bound_value(0, gp['avg_deg'], gp['max_num'] - len(G))
             crosslink_list = crosslink_list[:max_to_link]
             for k in crosslink_list:
                 if k in G and total_edges(G,k) < gp['avg_deg']:
@@ -126,7 +129,7 @@ def total_edges(DG, n):
 def bidirectional_nodes(val, diff_list):
     for j in range(len(diff_list)):
             diff_list.append(val - diff_list[j])
-            diff_list[j]   = val + diff_list[j]
+            diff_list[j] = val + diff_list[j]
     # Only keep unique values. Sets don't keep duplicates.
     diff_list = list(set(diff_list))
     return diff_list
@@ -148,12 +151,14 @@ def generate_hues(num,s=1,v=1):
         # XXX: then dark (high s, low v)
         # XXX: then faded (low s, low v)
         # XXX: s is (1, 0.75, 0.5), v is (1, 0.6)
-        hue_list.append(hsv_to_rgb(i*(options/num),
-                                s, #s*(1-0.25*(options//3)*(i*options)//num),
-                                v))
+        hue_list.append(hsv_to_rgb(i*(1/num),
+            # s*(1-0.25*(options//3)*(i*options)//num),
+            bound_value(0.5,s + 30*random.random() - 15,1),
+            bound_value(0.5,v + 30*random.random() - 15,1)))
     return hue_list
 
 def hsv_to_rgb(h, s, v):
+    """Converts Hue, Saturation, Value into Red, Green, Blue color space."""
     if s == 0.0: return (v, v, v)
     i = int(h*6.)
     f = (h*6.)-i; p,q,t = v*(1.-s), v*(1.-s*f), v*(1.-s*(1.-f)); i%=6
@@ -170,9 +175,12 @@ def make_connections_set(c_a, c_r, c_m=0, c_u=0):
     Replace undesired value with new if it is also unique.
     """
     c_l = random_unique(c_a, c_r, c_m)
-    # give a chance to remove the trivial +0 connections.
-    new_random = random.randint(c_m,c_m+c_r)
-    fuzzy_replace_list_unique(c_l,c_u,new_random)
+    if c_u is not None:
+        # give a chance to replace the undesired trivial connections (c_u).
+        new_random = random.randint(c_m,c_m+c_r)
+        fuzzy_replace_list_unique(c_l,c_u,new_random)
+        if c_u in c_l:  # if still there, remove c_u
+            c_l.remove(c_u)
     return c_l
 
 def fuzzy_replace_list_unique(l,u,n):
